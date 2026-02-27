@@ -9,7 +9,7 @@
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
   body {
     min-height: 100vh;
-    background: linear-gradient(180deg, #f5f0e6 0%, #ede7d9 100%);
+    background: #ffffff;
     font-family: 'DM Sans', sans-serif;
   }
   .header {
@@ -243,6 +243,24 @@
     box-shadow: 0 4px 16px rgba(0,0,0,0.2); pointer-events: none; z-index: 100;
     transition: opacity 0.3s, transform 0.3s;
   }
+
+  /* Accessibility: focus indicators */
+  button:focus-visible, select:focus-visible, textarea:focus-visible {
+    outline: 2px solid #2c2418; outline-offset: 2px;
+  }
+  .card:focus-visible { outline: 2px solid #2c2418; outline-offset: 2px; }
+  .level-btn:focus-visible { outline: 2px solid #2c2418; outline-offset: 1px; }
+  .delete-btn:focus-visible { outline: 2px solid #c45a4a; outline-offset: 1px; }
+  
+  /* Accessibility: ensure sufficient color contrast (WCAG AA 4.5:1) */
+  .ctrl-label { color: #5a5145; }
+  .combo-slash { color: #5a5145; }
+  
+  /* Screen reader only class */
+  .sr-only {
+    position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
+    overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0;
+  }
 </style>
 </head>
 <body>
@@ -255,7 +273,7 @@
 </div>
 
 <div class="container" id="app"></div>
-<div class="toast" id="toast" style="opacity:0; transform:translateX(-50%) translateY(20px);">✓ Copied to clipboard</div>
+<div class="toast" id="toast" role="status" aria-live="polite" style="opacity:0; transform:translateX(-50%) translateY(20px);">✓ Copied to clipboard</div>
 
 <script>
 const CODES = [
@@ -367,7 +385,8 @@ function render() {
 
 
   // Cards label
-  html += '<div class="section-label">Drag to reorder \u2014 first card = Main Point</div>';
+  html += '<div class="section-label" id="cards-label">Drag to reorder \u2014 first card = Main Point</div>';
+  html += '<div role="list" aria-labelledby="cards-label">';
 
   // Cards
   items.forEach((it, i) => {
@@ -375,9 +394,9 @@ function render() {
     const levelPx = isMP ? 0 : (it.level - 1) * 48;
     const cls = 'card' + (isMP ? ' mp' : '') + (state.dragIndex === i ? ' dragging' : '') + (state.overIndex === i ? ' drag-over' : '');
 
-    html += '<div class="' + cls + '" draggable="' + (state.editingIndex !== i) + '" style="margin-left:' + levelPx + 'px;" ';
+    html += '<div class="' + cls + '" tabindex="0" role="listitem" draggable="' + (state.editingIndex !== i) + '" style="margin-left:' + levelPx + 'px;" ';
     html += 'ondragstart="onDragStart(event,' + i + ')" ondragover="onDragOver(event,' + i + ')" ondrop="onDrop(event,' + i + ')" ondragend="onDragEnd()">';
-    html += '<div class="grip">\u2837</div>';
+    html += '<div class="grip" aria-hidden="true">\u2837</div>';
     html += '<div class="card-body">';
 
     if (isMP) {
@@ -397,13 +416,13 @@ function render() {
         html += '<div style="display:flex;align-items:flex-start;gap:8px;">';
         // Compact code area
         html += '<div style="display:flex;align-items:center;gap:3px;flex-shrink:0;padding-top:2px;min-width:125px;">';
-        html += '<select class="code-select-compact' + (it.code1 ? '' : ' empty') + '" onchange="updateItem(' + i + ',\'code1\',this.value)">' + codeOptionsShort(it.code2) + '</select>';
+        html += '<select class="code-select-compact' + (it.code1 ? '' : ' empty') + '" aria-label="Primary subordination code" onchange="updateItem(' + i + ',\'code1\',this.value)">' + codeOptionsShort(it.code2) + '</select>';
         if (it.code2 !== "" || it._showCombo) {
           html += '<span style="color:#b8ad9e;font-size:11px;">/</span>';
-          html += '<select class="code-select-compact' + (it.code2 ? '' : ' empty') + '" onchange="updateItem(' + i + ',\'code2\',this.value)">' + codeOptionsShort(it.code1) + '</select>';
-          html += '<button class="combo-remove" style="width:18px;height:18px;font-size:11px;" onclick="removeCombo(' + i + ')">\u2715</button>';
+          html += '<select class="code-select-compact' + (it.code2 ? '' : ' empty') + '" aria-label="Secondary subordination code" onchange="updateItem(' + i + ',\'code2\',this.value)">' + codeOptionsShort(it.code1) + '</select>';
+          html += '<button class="combo-remove" style="width:18px;height:18px;font-size:11px;" onclick="removeCombo(' + i + ')" aria-label="Remove combo code">\u2715</button>';
         } else {
-          html += '<button class="combo-add" style="padding:2px 6px;font-size:11px;" onclick="addCombo(' + i + ')">+</button>';
+          html += '<button class="combo-add" style="padding:2px 6px;font-size:11px;" onclick="addCombo(' + i + ')" aria-label="Add combo code">+</button>';
         }
         html += '</div>';
         // Text
@@ -412,9 +431,9 @@ function render() {
         html += '</div>';
         // Level controls on the right
         html += '<div style="display:flex;align-items:center;gap:4px;flex-shrink:0;padding-top:1px;">';
-        html += '<button class="level-btn" onclick="changeLevel(' + i + ',-1)">\u2190</button>';
+        html += '<button class="level-btn" aria-label="Decrease level" onclick="changeLevel(' + i + ',-1)">\u2190</button>';
         html += '<span class="level-val">' + it.level + '</span>';
-        html += '<button class="level-btn" onclick="changeLevel(' + i + ',1)">\u2192</button>';
+        html += '<button class="level-btn" aria-label="Increase level" onclick="changeLevel(' + i + ',1)">\u2192</button>';
         html += '</div>';
         html += '</div>';
       }
@@ -424,15 +443,16 @@ function render() {
 
     // Delete
     if (items.length > 1 && state.editingIndex !== i) {
-      html += '<button class="delete-btn" onclick="deleteItem(' + i + ')" title="Remove statement">\u2715</button>';
+      html += '<button class="delete-btn" onclick="deleteItem(' + i + ')" title="Remove statement" aria-label="Remove statement">\u2715</button>';
     }
 
     html += '</div>';
   });
 
+  html += '</div>';
   // Add input
   html += '<div class="add-row">';
-  html += '<textarea class="add-input" id="add-input" rows="2" placeholder="Type a statement and press Enter or click Add\u2026" onkeydown="addKeyDown(event)"></textarea>';
+  html += '<textarea class="add-input" id="add-input" rows="2" aria-label="New statement" placeholder="Type a statement and press Enter or click Add\u2026" onkeydown="addKeyDown(event)"></textarea>';
   html += '<button class="add-btn" onclick="addStatement()">Add</button>';
   html += '</div>';
 

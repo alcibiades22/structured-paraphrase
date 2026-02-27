@@ -269,33 +269,7 @@ const CODES = [
   { value: "q", label: "[q]", desc: "Qualify" },
 ];
 
-const EXAMPLES = [
-  {
-    id: "ex1", title: "OAS Mission (Version A)",
-    items: [
-      { text: "The OAS was unable to send its mission to Haiti yesterday as scheduled.", code1: "", code2: "", level: 1 },
-      { text: "The Haitians would not grant its plane landing rights.", code1: "ec", code2: "", level: 1 },
-      { text: "The plane belonged to Argentina.", code1: "em", code2: "", level: 2 },
-      { text: "Argentina had advocated force to restore a former government to Haiti.", code1: "em", code2: "", level: 2 },
-    ],
-  },
-  {
-    id: "ex2", title: "OAS Mission (Version B)",
-    items: [
-      { text: "The OAS was unable to send its mission to Haiti yesterday as scheduled.", code1: "", code2: "", level: 1 },
-      { text: "It planned to use an Argentine plane.", code1: "ec", code2: "", level: 1 },
-      { text: "Argentina had advocated force to restore a former government to Haiti.", code1: "ec", code2: "", level: 1 },
-      { text: "The Haitians would not grant its plane landing rights.", code1: "re", code2: "", level: 2 },
-    ],
-  },
-  {
-    id: "ex3", title: "Beryllium-10",
-    items: [
-      { text: "Unusual levels of beryllium-10 have been found at the 2000-foot level in the Greenland icecap.", code1: "", code2: "", level: 1 },
-      { text: "A nearby star blew up 35,000 years ago.", code1: "ec", code2: "ri", level: 1 },
-    ],
-  },
-];
+
 
 let nextId = 1;
 function makeId() { return 'stmt_' + (nextId++) + '_' + Date.now(); }
@@ -304,8 +278,7 @@ let state = {
   items: [{ id: makeId(), text: "", code1: "", code2: "", level: 1 }],
   showHelp: false,
   showLegend: false,
-  showExamples: false,
-  dragIndex: null,
+    dragIndex: null,
   overIndex: null,
   editingIndex: null,
 };
@@ -391,18 +364,7 @@ function render() {
   }
   html += '</div>';
 
-  // Examples
-  html += '<div style="margin-bottom:20px;">';
-  html += '<button class="collapse-btn" onclick="state.showExamples=!state.showExamples;render();"><span class="arrow ' + (state.showExamples ? 'open' : '') + '">\u25B8</span> Load an Example</button>';
-  if (state.showExamples) {
-    html += '<div class="examples-panel" style="display:flex;flex-direction:column;gap:6px;">';
-    EXAMPLES.forEach((ex, ei) => {
-      html += '<button class="example-btn" onclick="loadExample(' + ei + ')">' + ex.title;
-      html += '<span class="sub">' + ex.items.length + ' statements \u2014 shows one possible arrangement</span></button>';
-    });
-    html += '</div>';
-  }
-  html += '</div>';
+
 
   // Cards label
   html += '<div class="section-label">Drag to reorder \u2014 first card = Main Point</div>';
@@ -432,7 +394,7 @@ function render() {
       if (state.editingIndex === i) {
         html += '<textarea class="card-edit" id="edit-area" rows="2" onblur="saveEdit(' + i + ')" onkeydown="editKeyDown(event,' + i + ')">' + escHtml(it.text) + '</textarea>';
       } else {
-        html += '<div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:10px;">';
+        html += '<div style="display:flex;align-items:flex-start;gap:8px;">';
         // Compact code area
         html += '<div style="display:flex;align-items:center;gap:3px;flex-shrink:0;padding-top:2px;min-width:125px;">';
         html += '<select class="code-select-compact' + (it.code1 ? '' : ' empty') + '" onchange="updateItem(' + i + ',\'code1\',this.value)">' + codeOptionsShort(it.code2) + '</select>';
@@ -448,14 +410,12 @@ function render() {
         html += '<div class="card-text" style="flex:1;margin-bottom:0;" ondblclick="startEdit(' + i + ')">';
         html += escHtml(it.text) || '<span style="color:#9e9385;font-style:italic;">Double-click to add text\u2026</span>';
         html += '</div>';
-        html += '</div>';
-
-        // Level controls only
-        html += '<div class="controls">';
-        html += '<div class="level-group" style="margin-left:0;"><span class="ctrl-label">Level</span>';
+        // Level controls on the right
+        html += '<div style="display:flex;align-items:center;gap:4px;flex-shrink:0;padding-top:1px;">';
         html += '<button class="level-btn" onclick="changeLevel(' + i + ',-1)">\u2190</button>';
         html += '<span class="level-val">' + it.level + '</span>';
-        html += '<button class="level-btn" onclick="changeLevel(' + i + ',1)">\u2192</button></div>';
+        html += '<button class="level-btn" onclick="changeLevel(' + i + ',1)">\u2192</button>';
+        html += '</div>';
         html += '</div>';
       }
     }
@@ -595,11 +555,7 @@ function addStatement() {
 function addKeyDown(e) {
   if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); addStatement(); }
 }
-function loadExample(ei) {
-  state.items = EXAMPLES[ei].items.map(it => ({ ...it, id: makeId() }));
-  state.showExamples = false;
-  render();
-}
+
 function clearAll() {
   state.items = [{ id: makeId(), text: "", code1: "", code2: "", level: 1 }];
   render();

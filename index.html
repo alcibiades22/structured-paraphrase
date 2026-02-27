@@ -1,0 +1,594 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Structured Paraphrase Workspace</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Source+Serif+4:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  body {
+    min-height: 100vh;
+    background: linear-gradient(180deg, #f5f0e6 0%, #ede7d9 100%);
+    font-family: 'DM Sans', sans-serif;
+  }
+  .header {
+    background: #2c2418; padding: 24px 32px; border-bottom: 3px solid #8b7355;
+  }
+  .header-inner { max-width: 840px; margin: 0 auto; }
+  .header h1 {
+    font-family: 'Source Serif 4', Georgia, serif;
+    font-size: 26px; font-weight: 700; color: #f5f0e6; letter-spacing: -0.01em;
+  }
+  .header p {
+    font-size: 14px; color: #bfb49e; margin-top: 6px; letter-spacing: 0.02em;
+  }
+  .container { max-width: 840px; margin: 0 auto; padding: 28px 24px 60px; }
+
+  /* Help box */
+  .help-box {
+    margin-bottom: 24px; padding: 20px 24px; background: #fff9ed;
+    border: 1.5px solid #e0d3b8; border-radius: 10px; position: relative;
+  }
+  .help-box h3 {
+    font-family: 'Source Serif 4', Georgia, serif; font-size: 17px;
+    font-weight: 700; color: #2c2418; margin-bottom: 10px;
+  }
+  .help-box .steps {
+    font-family: 'Source Serif 4', Georgia, serif; font-size: 14px;
+    line-height: 1.7; color: #4a3f30;
+  }
+  .help-box .steps div { margin-bottom: 5px; }
+  .close-btn {
+    position: absolute; top: 12px; right: 16px; background: none;
+    border: none; cursor: pointer; font-size: 18px; color: #9e9385;
+  }
+
+  /* Collapsible sections */
+  .collapse-btn {
+    background: none; border: none; cursor: pointer; padding: 4px 0;
+    font-family: 'DM Sans', sans-serif; font-size: 13px; color: #8b7355;
+    font-weight: 600; letter-spacing: 0.03em; display: flex; align-items: center; gap: 6px;
+  }
+  .collapse-btn .arrow {
+    display: inline-block; transition: transform 0.2s;
+  }
+  .collapse-btn .arrow.open { transform: rotate(90deg); }
+
+  .legend-panel, .examples-panel {
+    margin-top: 8px; padding: 16px 20px; background: #faf7f2;
+    border: 1.5px solid #e0d9cd; border-radius: 8px;
+    font-family: 'Source Serif 4', Georgia, serif; font-size: 14px;
+    line-height: 1.7; color: #4a3f30;
+  }
+  .legend-panel div { margin-bottom: 6px; }
+  .legend-panel .code-label {
+    font-family: 'DM Mono', monospace; font-weight: 600; color: #8b7355;
+  }
+  .legend-panel .footer {
+    margin-top: 10px; padding-top: 10px; border-top: 1px solid #e0d9cd;
+    font-size: 13px; color: #8b7355; font-style: italic;
+  }
+
+  .example-btn {
+    display: block; width: 100%; padding: 10px 14px; margin-bottom: 6px;
+    border-radius: 6px; border: 1.5px solid #d4cbbf; background: #fffdf8;
+    cursor: pointer; text-align: left; font-family: 'Source Serif 4', Georgia, serif;
+    font-size: 14px; color: #2c2418; transition: border-color 0.15s, background 0.15s;
+  }
+  .example-btn:hover { border-color: #8b7355; background: #fff9ed; }
+  .example-btn .sub {
+    display: block; font-family: 'DM Sans', sans-serif; font-size: 12px;
+    color: #9e9385; margin-top: 2px;
+  }
+
+  /* Cards */
+  .card {
+    display: flex; align-items: flex-start; gap: 12px;
+    margin-bottom: 10px; padding: 14px 16px;
+    background: #fffdf8; border: 2px solid #c8bfb0; border-radius: 8px;
+    cursor: grab; transition: margin-left 0.25s ease, opacity 0.15s, border-color 0.2s, background 0.3s;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.06); position: relative;
+  }
+  .card.mp {
+    padding: 18px 22px; background: #2c2418; border: 2px solid #8b7355;
+    border-radius: 10px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+  }
+  .card.dragging { opacity: 0.5; }
+  .card.drag-over { border-color: #d4a853 !important; }
+  .grip { color: #9e9385; font-size: 16px; line-height: 1; user-select: none; padding-top: 2px; flex-shrink: 0; }
+  .card.mp .grip { color: #8b7355; }
+
+  .card-body { flex: 1; min-width: 0; }
+  .mp-label {
+    font-family: 'DM Mono', monospace; font-size: 12px; font-weight: 500;
+    color: #bfb49e; text-transform: uppercase; letter-spacing: 0.1em;
+    display: block; margin-bottom: 6px;
+  }
+  .card-text {
+    font-family: 'Source Serif 4', Georgia, serif; font-size: 15px;
+    line-height: 1.55; color: #2c2418; margin-bottom: 10px;
+    cursor: text; border-bottom: 1px dashed transparent; transition: border-color 0.15s;
+  }
+  .card-text:hover { border-bottom-color: #d4cbbf; }
+  .card.mp .card-text {
+    font-size: 17px; font-weight: 600; color: #f5f0e6; margin-bottom: 0;
+  }
+  .card.mp .card-text:hover { border-bottom-color: #8b7355; }
+  .sp-label {
+    font-weight: 600; color: #8b7355; margin-right: 6px;
+    font-family: 'DM Mono', monospace; font-size: 13px;
+  }
+
+  .card-edit {
+    width: 100%; font-family: 'Source Serif 4', Georgia, serif;
+    font-size: 15px; line-height: 1.55; color: #2c2418;
+    background: rgba(0,0,0,0.03); border: 1px solid #d4cbbf; border-radius: 4px;
+    padding: 8px; resize: vertical; outline: none; margin-bottom: 10px;
+  }
+  .card.mp .card-edit {
+    font-size: 17px; color: #f5f0e6; background: rgba(255,255,255,0.08);
+    border-color: #8b7355; margin-bottom: 0;
+  }
+
+  /* Controls row */
+  .controls { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .ctrl-label {
+    font-size: 11px; text-transform: uppercase; letter-spacing: 0.08em;
+    color: #9e9385; font-family: 'DM Sans', sans-serif; font-weight: 600;
+  }
+  .code-select {
+    padding: 4px 8px; border-radius: 5px; border: 1.5px solid #d4cbbf;
+    background: #faf7f2; font-family: 'DM Mono', monospace; font-size: 13px;
+    color: #2c2418; cursor: pointer; outline: none; max-width: 220px;
+  }
+  .code-select.empty { color: #9e9385; }
+  .combo-slash {
+    font-size: 11px; color: #b8ad9e; font-family: 'DM Sans', sans-serif; font-weight: 500;
+  }
+  .combo-remove {
+    width: 22px; height: 22px; border: 1px solid #d4cbbf; border-radius: 4px;
+    background: #faf7f2; cursor: pointer; display: flex; align-items: center;
+    justify-content: center; font-size: 13px; color: #9e9385; line-height: 1; padding: 0;
+  }
+  .combo-add {
+    padding: 3px 10px; border-radius: 5px; border: 1.5px dashed #d4cbbf;
+    background: transparent; font-family: 'DM Mono', monospace; font-size: 12px;
+    color: #9e9385; cursor: pointer; transition: border-color 0.15s, color 0.15s;
+  }
+  .combo-add:hover { border-color: #8b7355; color: #8b7355; }
+  .level-group { display: flex; align-items: center; gap: 4px; margin-left: auto; }
+  .level-btn {
+    width: 28px; height: 28px; border: 1.5px solid #d4cbbf; border-radius: 5px;
+    background: #faf7f2; cursor: pointer; display: flex; align-items: center;
+    justify-content: center; font-size: 16px; color: #8b7355; font-weight: 700;
+  }
+  .level-val {
+    font-family: 'DM Mono', monospace; font-size: 13px; color: #2c2418;
+    min-width: 18px; text-align: center; font-weight: 600;
+  }
+
+  .delete-btn {
+    position: absolute; top: 8px; right: 8px;
+    width: 22px; height: 22px; border: none; border-radius: 4px;
+    background: transparent; cursor: pointer; display: flex; align-items: center;
+    justify-content: center; font-size: 14px; color: #c8bfb0; transition: color 0.15s, background 0.15s;
+  }
+  .delete-btn:hover { color: #c45a4a; background: rgba(196,90,74,0.08); }
+  .card.mp .delete-btn { color: #6b5d4a; }
+  .card.mp .delete-btn:hover { color: #c45a4a; background: rgba(255,255,255,0.08); }
+
+  /* Add statement */
+  .add-row { display: flex; gap: 8px; margin-bottom: 28px; align-items: flex-start; }
+  .add-input {
+    flex: 1; padding: 12px 14px; border-radius: 8px;
+    border: 1.5px solid #d4cbbf; background: #fffdf8;
+    font-family: 'Source Serif 4', Georgia, serif; font-size: 15px;
+    line-height: 1.5; color: #2c2418; resize: vertical; outline: none;
+    transition: border-color 0.15s;
+  }
+  .add-input:focus { border-color: #8b7355; }
+  .add-btn {
+    padding: 12px 20px; border-radius: 8px; border: none;
+    background: #2c2418; color: #f5f0e6;
+    font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 700;
+    cursor: pointer; white-space: nowrap; transition: background 0.15s;
+    align-self: stretch; min-height: 48px;
+  }
+  .add-btn:hover { background: #4a3f30; }
+
+  /* Preview */
+  .preview {
+    margin-bottom: 20px; padding: 16px 20px;
+    background: #faf7f2; border: 1.5px solid #e0d9cd; border-radius: 10px;
+  }
+  .section-label {
+    font-family: 'DM Mono', monospace; font-size: 11px; color: #9e9385;
+    text-transform: uppercase; letter-spacing: 0.1em; margin-bottom: 10px; font-weight: 500;
+  }
+  .preview pre {
+    font-family: 'DM Mono', monospace; font-size: 13px; color: #2c2418;
+    line-height: 1.7; margin: 0; white-space: pre-wrap; word-break: break-word;
+  }
+
+  /* Action buttons */
+  .actions { display: flex; gap: 12px; align-items: center; flex-wrap: wrap; }
+  .btn-primary {
+    padding: 12px 28px; border-radius: 8px; border: none;
+    background: #2c2418; color: #f5f0e6;
+    font-family: 'DM Sans', sans-serif; font-size: 15px; font-weight: 700;
+    cursor: pointer; letter-spacing: 0.02em; transition: background 0.15s;
+  }
+  .btn-primary:hover { background: #4a3f30; }
+  .btn-primary:disabled { background: #c8bfb0; cursor: not-allowed; }
+  .btn-secondary {
+    padding: 12px 24px; border-radius: 8px;
+    border: 1.5px solid #d4cbbf; background: #fffdf8; color: #6b5d4a;
+    font-family: 'DM Sans', sans-serif; font-size: 15px; font-weight: 600; cursor: pointer;
+  }
+  .btn-secondary:disabled { background: #f0ece4; color: #b8ad9e; cursor: not-allowed; }
+  .ml-auto { margin-left: auto; }
+
+  /* Toast */
+  .toast {
+    position: fixed; bottom: 32px; left: 50%;
+    background: #2c2418; color: #f5f0e6; padding: 12px 24px; border-radius: 8px;
+    font-family: 'DM Sans', sans-serif; font-size: 14px; font-weight: 600;
+    box-shadow: 0 4px 16px rgba(0,0,0,0.2); pointer-events: none; z-index: 100;
+    transition: opacity 0.3s, transform 0.3s;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-inner">
+    <h1>Structured Paraphrase</h1>
+    <p>Build, arrange, and export structured paraphrases</p>
+  </div>
+</div>
+
+<div class="container" id="app"></div>
+<div class="toast" id="toast" style="opacity:0; transform:translateX(-50%) translateY(20px);">✓ Copied to clipboard</div>
+
+<script>
+const CODES = [
+  { value: "", label: "\u2014", desc: "Select code" },
+  { value: "ec", label: "[ec]", desc: "Explanation via Cause" },
+  { value: "em", label: "[em]", desc: "Explanation via Motive" },
+  { value: "ep", label: "[ep]", desc: "Explanation via Purpose" },
+  { value: "re", label: "[re]", desc: "Resulting Effect" },
+  { value: "ri", label: "[ri]", desc: "Resulting Inference" },
+  { value: "s", label: "[s]", desc: "Support" },
+  { value: "q", label: "[q]", desc: "Qualify" },
+];
+
+const EXAMPLES = [
+  {
+    id: "ex1", title: "OAS Mission (Version A)",
+    items: [
+      { text: "The OAS was unable to send its mission to Haiti yesterday as scheduled.", code1: "", code2: "", level: 1 },
+      { text: "The Haitians would not grant its plane landing rights.", code1: "ec", code2: "", level: 1 },
+      { text: "The plane belonged to Argentina.", code1: "em", code2: "", level: 2 },
+      { text: "Argentina had advocated force to restore a former government to Haiti.", code1: "em", code2: "", level: 2 },
+    ],
+  },
+  {
+    id: "ex2", title: "OAS Mission (Version B)",
+    items: [
+      { text: "The OAS was unable to send its mission to Haiti yesterday as scheduled.", code1: "", code2: "", level: 1 },
+      { text: "It planned to use an Argentine plane.", code1: "ec", code2: "", level: 1 },
+      { text: "Argentina had advocated force to restore a former government to Haiti.", code1: "ec", code2: "", level: 1 },
+      { text: "The Haitians would not grant its plane landing rights.", code1: "re", code2: "", level: 2 },
+    ],
+  },
+  {
+    id: "ex3", title: "Beryllium-10",
+    items: [
+      { text: "Unusual levels of beryllium-10 have been found at the 2000-foot level in the Greenland icecap.", code1: "", code2: "", level: 1 },
+      { text: "A nearby star blew up 35,000 years ago.", code1: "ec", code2: "ri", level: 1 },
+    ],
+  },
+];
+
+let nextId = 1;
+function makeId() { return 'stmt_' + (nextId++) + '_' + Date.now(); }
+
+let state = {
+  items: [{ id: makeId(), text: "", code1: "", code2: "", level: 1 }],
+  showHelp: true,
+  showLegend: false,
+  showExamples: false,
+  dragIndex: null,
+  overIndex: null,
+  editingIndex: null,
+};
+
+function formatCodeLabel(c1, c2) {
+  if (!c1 && !c2) return "";
+  if (c1 && c2) return "[" + c1 + "]/[" + c2 + "]";
+  if (c1) return "[" + c1 + "]";
+  return "[" + c2 + "]";
+}
+
+function buildExportText(items) {
+  const valid = items.filter(it => it.text.trim());
+  return valid.map((it, i) => {
+    if (i === 0) return "MP: " + it.text;
+    const indent = "     ".repeat(it.level);
+    const code = formatCodeLabel(it.code1, it.code2);
+    return (code ? code : "") + indent + "SP: " + it.text;
+  }).join("\n");
+}
+
+function codeOptions(exclude) {
+  return CODES.filter(c => c.value !== exclude || c.value === "")
+    .map(c => '<option value="' + c.value + '">' + (c.value ? c.label + ' ' + c.desc : c.desc) + '</option>')
+    .join('');
+}
+
+function render() {
+  const app = document.getElementById('app');
+  const items = state.items;
+  const validItems = items.filter(it => it.text.trim());
+  const previewText = validItems.length > 0 ? buildExportText(validItems) : "";
+
+  let html = '';
+
+  // Help
+  if (state.showHelp) {
+    html += '<div class="help-box"><button class="close-btn" onclick="state.showHelp=false;render();">\u2715</button>';
+    html += '<h3>How to use this tool</h3><div class="steps">';
+    html += '<div><strong>1.</strong> <strong>Add statements</strong> using the input below, or load an example to study.</div>';
+    html += '<div><strong>2.</strong> The <strong>first card</strong> automatically becomes the Main Point. <strong>Drag cards</strong> to rearrange \u2014 any statement can be the MP.</div>';
+    html += '<div><strong>3.</strong> Set each SP\u2019s <strong>level</strong> with the arrow buttons. Level 1 relates to the MP directly; level 2 relates to the SP above it.</div>';
+    html += '<div><strong>4.</strong> Choose a <strong>relationship code</strong> for each SP. Click <strong>+ combo</strong> if it serves more than one function.</div>';
+    html += '<div><strong>5.</strong> <strong>Double-click</strong> any statement to edit its text.</div>';
+    html += '<div><strong>6.</strong> When you\u2019re done, <strong>copy to clipboard</strong> or <strong>download as .txt</strong>.</div>';
+    html += '</div></div>';
+  }
+
+  // Legend
+  html += '<div style="margin-bottom:20px;">';
+  html += '<button class="collapse-btn" onclick="state.showLegend=!state.showLegend;render();"><span class="arrow ' + (state.showLegend ? 'open' : '') + '">\u25B8</span> Relationship Codes Reference</button>';
+  if (state.showLegend) {
+    html += '<div class="legend-panel">';
+    html += '<div><span class="code-label">[ec]</span> \u2014 <em>Explanation via Cause:</em> explains <em>why</em> something happened by identifying a cause.</div>';
+    html += '<div><span class="code-label">[em]</span> \u2014 <em>Explanation via Motive:</em> explains <em>why</em> by identifying the motive or intention of an agent.</div>';
+    html += '<div><span class="code-label">[ep]</span> \u2014 <em>Explanation via Purpose:</em> explains <em>why</em> by identifying the purpose or goal behind an action.</div>';
+    html += '<div><span class="code-label">[re]</span> \u2014 <em>Resulting Effect:</em> identifies what happened <em>as a result</em> of the point above.</div>';
+    html += '<div><span class="code-label">[ri]</span> \u2014 <em>Resulting Inference:</em> draws an inference or conclusion from the point above.</div>';
+    html += '<div><span class="code-label">[s]</span> \u2014 <em>Support:</em> provides evidence or backing for the point above.</div>';
+    html += '<div><span class="code-label">[q]</span> \u2014 <em>Qualify:</em> limits, restricts, or adds a caveat to the point above.</div>';
+    html += '<div class="footer">Codes can be combined \u2014 use the <strong>+ combo</strong> button when a supporting point serves more than one function.</div>';
+    html += '</div>';
+  }
+  html += '</div>';
+
+  // Examples
+  html += '<div style="margin-bottom:20px;">';
+  html += '<button class="collapse-btn" onclick="state.showExamples=!state.showExamples;render();"><span class="arrow ' + (state.showExamples ? 'open' : '') + '">\u25B8</span> Load an Example</button>';
+  if (state.showExamples) {
+    html += '<div class="examples-panel" style="display:flex;flex-direction:column;gap:6px;">';
+    EXAMPLES.forEach((ex, ei) => {
+      html += '<button class="example-btn" onclick="loadExample(' + ei + ')">' + ex.title;
+      html += '<span class="sub">' + ex.items.length + ' statements \u2014 shows one possible arrangement</span></button>';
+    });
+    html += '</div>';
+  }
+  html += '</div>';
+
+  // Cards label
+  html += '<div class="section-label">Drag to reorder \u2014 first card = Main Point</div>';
+
+  // Cards
+  items.forEach((it, i) => {
+    const isMP = i === 0;
+    const levelPx = isMP ? 0 : (it.level - 1) * 48;
+    const cls = 'card' + (isMP ? ' mp' : '') + (state.dragIndex === i ? ' dragging' : '') + (state.overIndex === i ? ' drag-over' : '');
+
+    html += '<div class="' + cls + '" draggable="' + (state.editingIndex !== i) + '" style="margin-left:' + levelPx + 'px;" ';
+    html += 'ondragstart="onDragStart(event,' + i + ')" ondragover="onDragOver(event,' + i + ')" ondrop="onDrop(event,' + i + ')" ondragend="onDragEnd()">';
+    html += '<div class="grip">\u2837</div>';
+    html += '<div class="card-body">';
+
+    if (isMP) html += '<span class="mp-label">Main Point</span>';
+
+    if (state.editingIndex === i) {
+      html += '<textarea class="card-edit" id="edit-area" rows="2" onblur="saveEdit(' + i + ')" onkeydown="editKeyDown(event,' + i + ')">' + escHtml(it.text) + '</textarea>';
+    } else {
+      html += '<div class="card-text" ondblclick="startEdit(' + i + ')">';
+      if (!isMP) html += '<span class="sp-label">SP:</span>';
+      html += escHtml(it.text) || '<span style="color:#9e9385;font-style:italic;">Double-click to add text\u2026</span>';
+      html += '</div>';
+    }
+
+    // SP controls
+    if (!isMP && state.editingIndex !== i) {
+      html += '<div class="controls">';
+      // Code 1
+      html += '<div style="display:flex;align-items:center;gap:4px;"><span class="ctrl-label">Code</span>';
+      html += '<select class="code-select' + (it.code1 ? '' : ' empty') + '" onchange="updateItem(' + i + ',\'code1\',this.value)">' + codeOptions(it.code2) + '</select></div>';
+
+      // Combo
+      if (it.code2 !== "" || it._showCombo) {
+        html += '<div style="display:flex;align-items:center;gap:4px;"><span class="combo-slash">/</span>';
+        html += '<select class="code-select' + (it.code2 ? '' : ' empty') + '" onchange="updateItem(' + i + ',\'code2\',this.value)">' + codeOptions(it.code1) + '</select>';
+        html += '<button class="combo-remove" onclick="removeCombo(' + i + ')">\u2715</button></div>';
+      } else {
+        html += '<button class="combo-add" onclick="addCombo(' + i + ')">+ combo</button>';
+      }
+
+      // Level
+      html += '<div class="level-group"><span class="ctrl-label">Level</span>';
+      html += '<button class="level-btn" onclick="changeLevel(' + i + ',-1)">\u2190</button>';
+      html += '<span class="level-val">' + it.level + '</span>';
+      html += '<button class="level-btn" onclick="changeLevel(' + i + ',1)">\u2192</button></div>';
+      html += '</div>';
+    }
+
+    html += '</div>';
+
+    // Delete
+    if (items.length > 1 && state.editingIndex !== i) {
+      html += '<button class="delete-btn" onclick="deleteItem(' + i + ')" title="Remove statement">\u2715</button>';
+    }
+
+    html += '</div>';
+  });
+
+  // Add input
+  html += '<div class="add-row">';
+  html += '<textarea class="add-input" id="add-input" rows="2" placeholder="Type a statement and press Enter or click Add\u2026" onkeydown="addKeyDown(event)"></textarea>';
+  html += '<button class="add-btn" onclick="addStatement()">Add</button>';
+  html += '</div>';
+
+  // Preview
+  if (previewText) {
+    html += '<div class="preview"><div class="section-label">Export Preview</div>';
+    html += '<pre>' + escHtml(previewText) + '</pre></div>';
+  }
+
+  // Actions
+  const dis = validItems.length === 0;
+  html += '<div class="actions">';
+  html += '<button class="btn-primary" onclick="copyToClipboard()"' + (dis ? ' disabled' : '') + '>Copy to Clipboard</button>';
+  html += '<button class="btn-secondary" onclick="downloadTxt()"' + (dis ? ' disabled' : '') + '>Download .txt</button>';
+  html += '<button class="btn-secondary ml-auto" onclick="clearAll()">Clear All</button>';
+  html += '</div>';
+
+  app.innerHTML = html;
+
+  // Restore select values (since innerHTML resets them)
+  items.forEach((it, i) => {
+    if (i === 0) return;
+    const selects = app.querySelectorAll('.card:nth-child(' + (i + 4) + ') select'); // offset for help/legend/examples/label divs
+  });
+  // Better approach: set values after render
+  requestAnimationFrame(() => {
+    const cards = app.querySelectorAll('.card');
+    cards.forEach((card, i) => {
+      const it = items[i];
+      if (i === 0) return; // MP has no selects
+      const selects = card.querySelectorAll('select');
+      if (selects[0]) selects[0].value = it.code1;
+      if (selects[1]) selects[1].value = it.code2;
+    });
+    // Focus edit area if editing
+    if (state.editingIndex !== null) {
+      const ea = document.getElementById('edit-area');
+      if (ea) { ea.focus(); ea.selectionStart = ea.value.length; }
+    }
+  });
+}
+
+function escHtml(s) {
+  const d = document.createElement('div');
+  d.textContent = s;
+  return d.innerHTML;
+}
+
+// Item actions
+function updateItem(i, key, val) {
+  state.items[i][key] = val;
+  render();
+}
+function addCombo(i) {
+  state.items[i]._showCombo = true;
+  render();
+}
+function removeCombo(i) {
+  state.items[i].code2 = "";
+  delete state.items[i]._showCombo;
+  render();
+}
+function changeLevel(i, delta) {
+  const lv = state.items[i].level + delta;
+  if (lv >= 1 && lv <= 4) { state.items[i].level = lv; render(); }
+}
+function deleteItem(i) {
+  state.items.splice(i, 1);
+  render();
+}
+function startEdit(i) {
+  state.editingIndex = i;
+  render();
+}
+function saveEdit(i) {
+  const ea = document.getElementById('edit-area');
+  if (ea && ea.value.trim()) state.items[i].text = ea.value.trim();
+  state.editingIndex = null;
+  render();
+}
+function editKeyDown(e, i) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveEdit(i); }
+  if (e.key === 'Escape') { state.editingIndex = null; render(); }
+}
+function addStatement() {
+  const inp = document.getElementById('add-input');
+  const text = inp.value.trim();
+  if (!text) return;
+  state.items.push({ id: makeId(), text, code1: "", code2: "", level: 1 });
+  inp.value = "";
+  render();
+  requestAnimationFrame(() => document.getElementById('add-input')?.focus());
+}
+function addKeyDown(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); addStatement(); }
+}
+function loadExample(ei) {
+  state.items = EXAMPLES[ei].items.map(it => ({ ...it, id: makeId() }));
+  state.showExamples = false;
+  render();
+}
+function clearAll() {
+  state.items = [{ id: makeId(), text: "", code1: "", code2: "", level: 1 }];
+  render();
+}
+
+// Drag and drop
+function onDragStart(e, i) {
+  state.dragIndex = i;
+  e.dataTransfer.effectAllowed = 'move';
+  requestAnimationFrame(() => render());
+}
+function onDragOver(e, i) {
+  e.preventDefault();
+  if (state.overIndex !== i) { state.overIndex = i; render(); }
+}
+function onDrop(e, i) {
+  e.preventDefault();
+  const from = state.dragIndex;
+  if (from === null || from === i) { state.dragIndex = null; state.overIndex = null; render(); return; }
+  const moved = state.items.splice(from, 1)[0];
+  state.items.splice(i, 0, moved);
+  state.dragIndex = null; state.overIndex = null;
+  render();
+}
+function onDragEnd() {
+  state.dragIndex = null; state.overIndex = null; render();
+}
+
+// Export
+function copyToClipboard() {
+  const valid = state.items.filter(it => it.text.trim());
+  if (!valid.length) return;
+  navigator.clipboard.writeText(buildExportText(valid)).then(() => {
+    const t = document.getElementById('toast');
+    t.style.opacity = '1'; t.style.transform = 'translateX(-50%) translateY(0)';
+    setTimeout(() => { t.style.opacity = '0'; t.style.transform = 'translateX(-50%) translateY(20px)'; }, 2000);
+  });
+}
+function downloadTxt() {
+  const valid = state.items.filter(it => it.text.trim());
+  if (!valid.length) return;
+  const blob = new Blob([buildExportText(valid)], { type: 'text/plain' });
+  const a = document.createElement('a'); a.href = URL.createObjectURL(blob);
+  a.download = 'structured-paraphrase.txt'; a.click(); URL.revokeObjectURL(a.href);
+}
+
+// Init
+render();
+</script>
+</body>
+</html>

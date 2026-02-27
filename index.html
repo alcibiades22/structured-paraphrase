@@ -3,7 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>Structured Paraphrase Workspace</title>
+<title>Structured Paraphrase Tool</title>
 <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=DM+Sans:wght@400;500;600;700&family=Source+Serif+4:ital,wght@0,400;0,600;0,700;1,400&display=swap" rel="stylesheet">
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
@@ -243,7 +243,7 @@
 
 <div class="header">
   <div class="header-inner">
-    <h1>Structured Paraphrase</h1>
+    <h1>Structured Paraphrase Tool</h1>
     <p>Build, arrange, and export structured paraphrases</p>
   </div>
 </div>
@@ -570,14 +570,56 @@ function onDragEnd() {
 }
 
 // Export
+function showToast(msg) {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.style.opacity = '1'; t.style.transform = 'translateX(-50%) translateY(0)';
+  setTimeout(() => { t.style.opacity = '0'; t.style.transform = 'translateX(-50%) translateY(20px)'; }, 2500);
+}
 function copyToClipboard() {
   const valid = state.items.filter(it => it.text.trim());
   if (!valid.length) return;
-  navigator.clipboard.writeText(buildExportText(valid)).then(() => {
-    const t = document.getElementById('toast');
-    t.style.opacity = '1'; t.style.transform = 'translateX(-50%) translateY(0)';
-    setTimeout(() => { t.style.opacity = '0'; t.style.transform = 'translateX(-50%) translateY(20px)'; }, 2000);
-  });
+  const text = buildExportText(valid);
+  // Try modern clipboard API first
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    navigator.clipboard.writeText(text).then(() => {
+      showToast('\u2713 Copied to clipboard');
+    }).catch(() => { fallbackCopy(text); });
+  } else { fallbackCopy(text); }
+}
+function fallbackCopy(text) {
+  // Fallback for iframes: use a temporary textarea + execCommand
+  const ta = document.createElement('textarea');
+  ta.value = text; ta.style.position = 'fixed'; ta.style.left = '-9999px';
+  document.body.appendChild(ta); ta.select();
+  try {
+    document.execCommand('copy');
+    showToast('\u2713 Copied to clipboard');
+  } catch(e) {
+    // If even that fails, show a modal with the text to copy manually
+    showCopyModal(text);
+  }
+  document.body.removeChild(ta);
+}
+function showCopyModal(text) {
+  const overlay = document.createElement('div');
+  overlay.style.cssText = 'position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.5);z-index:200;display:flex;align-items:center;justify-content:center;';
+  const box = document.createElement('div');
+  box.style.cssText = 'background:#fffdf8;border-radius:10px;padding:24px;max-width:600px;width:90%;max-height:80vh;display:flex;flex-direction:column;box-shadow:0 8px 32px rgba(0,0,0,0.2);';
+  box.innerHTML = '<div style="font-family:DM Sans,sans-serif;font-size:15px;font-weight:600;color:#2c2418;margin-bottom:12px;">Select all and copy (Ctrl+C / Cmd+C):</div>';
+  const ta = document.createElement('textarea');
+  ta.value = text; ta.readOnly = true;
+  ta.style.cssText = 'width:100%;height:200px;font-family:DM Mono,monospace;font-size:13px;line-height:1.7;color:#2c2418;border:1.5px solid #d4cbbf;border-radius:6px;padding:12px;resize:none;outline:none;';
+  box.appendChild(ta);
+  const closeBtn = document.createElement('button');
+  closeBtn.textContent = 'Close';
+  closeBtn.style.cssText = 'margin-top:12px;padding:10px 24px;border-radius:8px;border:none;background:#2c2418;color:#f5f0e6;font-family:DM Sans,sans-serif;font-size:14px;font-weight:700;cursor:pointer;align-self:flex-end;';
+  closeBtn.onclick = () => document.body.removeChild(overlay);
+  box.appendChild(closeBtn);
+  overlay.appendChild(box);
+  overlay.onclick = (e) => { if (e.target === overlay) document.body.removeChild(overlay); };
+  document.body.appendChild(overlay);
+  ta.select();
 }
 function downloadTxt() {
   const valid = state.items.filter(it => it.text.trim());

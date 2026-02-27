@@ -138,10 +138,16 @@
     color: #9e9385; font-family: 'DM Sans', sans-serif; font-weight: 600;
   }
   .code-select {
-    padding: 4px 8px; border-radius: 5px; border: 1.5px solid #d4cbbf;
-    background: #faf7f2; font-family: 'DM Mono', monospace; font-size: 13px;
-    color: #2c2418; cursor: pointer; outline: none; max-width: 220px;
+    padding: 4px 6px; border-radius: 5px; border: 1.5px solid #d4cbbf;
+    background: #faf7f2; font-family: 'DM Mono', monospace; font-size: 12px;
+    color: #2c2418; cursor: pointer; outline: none; max-width: 180px;
   }
+  .code-select-compact {
+    padding: 3px 5px; border-radius: 4px; border: 1.5px solid #d4cbbf;
+    background: #faf7f2; font-family: 'DM Mono', monospace; font-size: 11px;
+    color: #2c2418; cursor: pointer; outline: none; width: auto;
+  }
+  .code-select-compact.empty { color: #9e9385; }
   .code-select.empty { color: #9e9385; }
   .combo-slash {
     font-size: 11px; color: #b8ad9e; font-family: 'DM Sans', sans-serif; font-weight: 500;
@@ -296,7 +302,7 @@ function makeId() { return 'stmt_' + (nextId++) + '_' + Date.now(); }
 
 let state = {
   items: [{ id: makeId(), text: "", code1: "", code2: "", level: 1 }],
-  showHelp: true,
+  showHelp: false,
   showLegend: false,
   showExamples: false,
   dragIndex: null,
@@ -313,17 +319,35 @@ function formatCodeLabel(c1, c2) {
 
 function buildExportText(items) {
   const valid = items.filter(it => it.text.trim());
+  // Find the widest code label for alignment
+  // Find widest code for dot padding
+  var maxCodeLen = 0;
+  valid.forEach((it, i) => {
+    if (i === 0) return;
+    var cl = formatCodeLabel(it.code1, it.code2).length;
+    if (cl > maxCodeLen) maxCodeLen = cl;
+  });
   return valid.map((it, i) => {
     if (i === 0) return "MP: " + it.text;
-    const indent = "     ".repeat(it.level);
     const code = formatCodeLabel(it.code1, it.code2);
-    return (code ? code : "") + indent + "SP: " + it.text;
+    const codeLen = code ? code.length : 0;
+    // In proportional fonts, 1 code char ≈ 2 dots wide, so multiply gap by 2
+    const padDots = (maxCodeLen - codeLen) + 5;
+    const levelDots = (it.level - 1) * 5;
+    const dots = ".".repeat(padDots + levelDots);
+    return (code ? code : "") + dots + "SP: " + it.text;
   }).join("\n");
 }
 
 function codeOptions(exclude) {
   return CODES.filter(c => c.value !== exclude || c.value === "")
     .map(c => '<option value="' + c.value + '">' + (c.value ? c.label + ' ' + c.desc : c.desc) + '</option>')
+    .join('');
+}
+
+function codeOptionsShort(exclude) {
+  return CODES.filter(c => c.value !== exclude || c.value === "")
+    .map(c => '<option value="' + c.value + '">' + (c.value ? c.label : '\u2014') + '</option>')
     .join('');
 }
 
@@ -335,10 +359,11 @@ function render() {
 
   let html = '';
 
-  // Help
+  // Help (collapsible)
+  html += '<div style="margin-bottom:20px;">';
+  html += '<button class="collapse-btn" onclick="state.showHelp=!state.showHelp;render();"><span class="arrow ' + (state.showHelp ? 'open' : '') + '">\u25B8</span> How to Use This Tool</button>';
   if (state.showHelp) {
-    html += '<div class="help-box"><button class="close-btn" onclick="state.showHelp=false;render();">\u2715</button>';
-    html += '<h3>How to use this tool</h3><div class="steps">';
+    html += '<div class="legend-panel"><div class="steps">';
     html += '<div><strong>1.</strong> <strong>Add statements</strong> using the input below, or load an example to study.</div>';
     html += '<div><strong>2.</strong> The <strong>first card</strong> automatically becomes the Main Point. <strong>Drag cards</strong> to rearrange \u2014 any statement can be the MP.</div>';
     html += '<div><strong>3.</strong> Set each SP\u2019s <strong>level</strong> with the arrow buttons. Level 1 relates to the MP directly; level 2 relates to the SP above it.</div>';
@@ -347,10 +372,11 @@ function render() {
     html += '<div><strong>6.</strong> When you\u2019re done, <strong>copy to clipboard</strong> or <strong>download as .txt</strong>.</div>';
     html += '</div></div>';
   }
+  html += '</div>';
 
   // Legend
   html += '<div style="margin-bottom:20px;">';
-  html += '<button class="collapse-btn" onclick="state.showLegend=!state.showLegend;render();"><span class="arrow ' + (state.showLegend ? 'open' : '') + '">\u25B8</span> Relationship Codes Reference</button>';
+  html += '<button class="collapse-btn" onclick="state.showLegend=!state.showLegend;render();"><span class="arrow ' + (state.showLegend ? 'open' : '') + '">\u25B8</span> Subordination Code Reference</button>';
   if (state.showLegend) {
     html += '<div class="legend-panel">';
     html += '<div><span class="code-label">[ec]</span> \u2014 <em>Explanation via Cause:</em> explains <em>why</em> something happened by identifying a cause.</div>';
@@ -392,39 +418,46 @@ function render() {
     html += '<div class="grip">\u2837</div>';
     html += '<div class="card-body">';
 
-    if (isMP) html += '<span class="mp-label">Main Point</span>';
-
-    if (state.editingIndex === i) {
-      html += '<textarea class="card-edit" id="edit-area" rows="2" onblur="saveEdit(' + i + ')" onkeydown="editKeyDown(event,' + i + ')">' + escHtml(it.text) + '</textarea>';
-    } else {
-      html += '<div class="card-text" ondblclick="startEdit(' + i + ')">';
-      if (!isMP) html += '<span class="sp-label">SP:</span>';
-      html += escHtml(it.text) || '<span style="color:#9e9385;font-style:italic;">Double-click to add text\u2026</span>';
-      html += '</div>';
-    }
-
-    // SP controls
-    if (!isMP && state.editingIndex !== i) {
-      html += '<div class="controls">';
-      // Code 1
-      html += '<div style="display:flex;align-items:center;gap:4px;"><span class="ctrl-label">Code</span>';
-      html += '<select class="code-select' + (it.code1 ? '' : ' empty') + '" onchange="updateItem(' + i + ',\'code1\',this.value)">' + codeOptions(it.code2) + '</select></div>';
-
-      // Combo
-      if (it.code2 !== "" || it._showCombo) {
-        html += '<div style="display:flex;align-items:center;gap:4px;"><span class="combo-slash">/</span>';
-        html += '<select class="code-select' + (it.code2 ? '' : ' empty') + '" onchange="updateItem(' + i + ',\'code2\',this.value)">' + codeOptions(it.code1) + '</select>';
-        html += '<button class="combo-remove" onclick="removeCombo(' + i + ')">\u2715</button></div>';
+    if (isMP) {
+      html += '<span class="mp-label">Main Point</span>';
+      if (state.editingIndex === i) {
+        html += '<textarea class="card-edit" id="edit-area" rows="2" onblur="saveEdit(' + i + ')" onkeydown="editKeyDown(event,' + i + ')">' + escHtml(it.text) + '</textarea>';
       } else {
-        html += '<button class="combo-add" onclick="addCombo(' + i + ')">+ combo</button>';
+        html += '<div class="card-text" ondblclick="startEdit(' + i + ')">';
+        html += escHtml(it.text) || '<span style="color:#9e9385;font-style:italic;">Double-click to add text\u2026</span>';
+        html += '</div>';
       }
+    } else {
+      // SP: code tag to the left of text on the same line
+      if (state.editingIndex === i) {
+        html += '<textarea class="card-edit" id="edit-area" rows="2" onblur="saveEdit(' + i + ')" onkeydown="editKeyDown(event,' + i + ')">' + escHtml(it.text) + '</textarea>';
+      } else {
+        html += '<div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:10px;">';
+        // Compact code area
+        html += '<div style="display:flex;align-items:center;gap:3px;flex-shrink:0;padding-top:2px;min-width:125px;">';
+        html += '<select class="code-select-compact' + (it.code1 ? '' : ' empty') + '" onchange="updateItem(' + i + ',\'code1\',this.value)">' + codeOptionsShort(it.code2) + '</select>';
+        if (it.code2 !== "" || it._showCombo) {
+          html += '<span style="color:#b8ad9e;font-size:11px;">/</span>';
+          html += '<select class="code-select-compact' + (it.code2 ? '' : ' empty') + '" onchange="updateItem(' + i + ',\'code2\',this.value)">' + codeOptionsShort(it.code1) + '</select>';
+          html += '<button class="combo-remove" style="width:18px;height:18px;font-size:11px;" onclick="removeCombo(' + i + ')">\u2715</button>';
+        } else {
+          html += '<button class="combo-add" style="padding:2px 6px;font-size:11px;" onclick="addCombo(' + i + ')">+</button>';
+        }
+        html += '</div>';
+        // Text
+        html += '<div class="card-text" style="flex:1;margin-bottom:0;" ondblclick="startEdit(' + i + ')">';
+        html += escHtml(it.text) || '<span style="color:#9e9385;font-style:italic;">Double-click to add text\u2026</span>';
+        html += '</div>';
+        html += '</div>';
 
-      // Level
-      html += '<div class="level-group"><span class="ctrl-label">Level</span>';
-      html += '<button class="level-btn" onclick="changeLevel(' + i + ',-1)">\u2190</button>';
-      html += '<span class="level-val">' + it.level + '</span>';
-      html += '<button class="level-btn" onclick="changeLevel(' + i + ',1)">\u2192</button></div>';
-      html += '</div>';
+        // Level controls only
+        html += '<div class="controls">';
+        html += '<div class="level-group" style="margin-left:0;"><span class="ctrl-label">Level</span>';
+        html += '<button class="level-btn" onclick="changeLevel(' + i + ',-1)">\u2190</button>';
+        html += '<span class="level-val">' + it.level + '</span>';
+        html += '<button class="level-btn" onclick="changeLevel(' + i + ',1)">\u2192</button></div>';
+        html += '</div>';
+      }
     }
 
     html += '</div>';
@@ -478,6 +511,11 @@ function render() {
     if (state.editingIndex !== null) {
       const ea = document.getElementById('edit-area');
       if (ea) { ea.focus(); ea.selectionStart = ea.value.length; }
+      // Backup focus attempt for reliability
+      setTimeout(() => {
+        const ea2 = document.getElementById('edit-area');
+        if (ea2 && document.activeElement !== ea2) { ea2.focus(); ea2.selectionStart = ea2.value.length; }
+      }, 50);
     }
   });
 }
@@ -514,15 +552,36 @@ function startEdit(i) {
   state.editingIndex = i;
   render();
 }
+// Auto-focus the first card for editing if it's empty on load
+function autoEditEmpty() {
+  if (state.items.length === 1 && !state.items[0].text) {
+    state.editingIndex = 0;
+    render();
+  }
+}
 function saveEdit(i) {
+  if (skipBlur) { skipBlur = false; return; }
   const ea = document.getElementById('edit-area');
   if (ea && ea.value.trim()) state.items[i].text = ea.value.trim();
   state.editingIndex = null;
   render();
 }
+var skipBlur = false;
 function editKeyDown(e, i) {
-  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); saveEdit(i); }
-  if (e.key === 'Escape') { state.editingIndex = null; render(); }
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    skipBlur = true;
+    // Save current edit
+    var ea = document.getElementById('edit-area');
+    if (ea && ea.value.trim()) state.items[i].text = ea.value.trim();
+    // Create a new blank SP right after this card and start editing it
+    var newItem = { id: makeId(), text: "", code1: "", code2: "", level: 1 };
+    state.items.splice(i + 1, 0, newItem);
+    state.editingIndex = i + 1;
+    render();
+    return;
+  }
+  if (e.key === 'Escape') { skipBlur = true; state.editingIndex = null; render(); }
 }
 function addStatement() {
   const inp = document.getElementById('add-input');

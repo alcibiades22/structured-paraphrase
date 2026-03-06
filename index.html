@@ -91,19 +91,19 @@
     box-shadow: 0 1px 3px rgba(0,0,0,0.06); position: relative;
   }
   .card.mp {
-    padding: 18px 22px; background: #2d2d2d; border: 2px solid #e9171f;
-    border-radius: 10px; margin-bottom: 16px; box-shadow: 0 2px 8px rgba(0,0,0,0.15);
+    padding: 14px 36px 14px 16px; background: #ffffff; border: 1.5px solid #d8dbdc;
+    border-radius: 8px; margin-bottom: 16px; box-shadow: 0 1px 3px rgba(0,0,0,0.06);
   }
   .card.dragging { opacity: 0.5; }
   .card.drag-over { border-color: #fed184 !important; }
   .grip { color: #b4babc; font-size: 16px; line-height: 1; user-select: none; padding-top: 2px; flex-shrink: 0; }
-  .card.mp .grip { color: #e9171f; }
+  .card.mp .grip { color: #b4babc; }
 
   .card-body { flex: 1; min-width: 0; }
   .mp-label {
-    font-family: 'DM Mono', monospace; font-size: 12px; font-weight: 500;
-    color: #b4babc; text-transform: uppercase; letter-spacing: 0.1em;
-    display: block; margin-bottom: 6px;
+    display: inline-block; font-family: 'DM Mono', monospace; font-size: 10px; font-weight: 700;
+    color: #ffffff; background: #e9171f; text-transform: uppercase; letter-spacing: 0.08em;
+    padding: 2px 7px; border-radius: 3px; margin-bottom: 8px;
   }
   .card-text {
     font-family: 'Source Serif 4', Georgia, serif; font-size: 15px;
@@ -112,9 +112,9 @@
   }
   .card-text:hover { border-bottom-color: #d8dbdc; }
   .card.mp .card-text {
-    font-size: 17px; font-weight: 600; color: #ffffff; margin-bottom: 0;
+    font-size: 17px; font-weight: 600; color: #000000; margin-bottom: 0;
   }
-  .card.mp .card-text:hover { border-bottom-color: #e9171f; }
+  .card.mp .card-text:hover { border-bottom-color: #d8dbdc; }
   .sp-label {
     font-weight: 600; color: #e9171f; margin-right: 6px;
     font-family: 'DM Mono', monospace; font-size: 13px;
@@ -127,8 +127,8 @@
     padding: 8px; resize: vertical; outline: none; margin-bottom: 10px;
   }
   .card.mp .card-edit {
-    font-size: 17px; color: #ffffff; background: rgba(255,255,255,0.08);
-    border-color: #e9171f; margin-bottom: 0;
+    font-size: 17px; color: #000000; background: rgba(0,0,0,0.03);
+    border-color: #d8dbdc; margin-bottom: 0;
   }
 
   /* Controls row */
@@ -402,7 +402,7 @@ function render() {
     if (isMP) {
       html += '<span class="mp-label">Main Point</span>';
       if (state.editingIndex === i) {
-        html += '<textarea class="card-edit" id="edit-area" rows="2" onblur="saveEdit(' + i + ')" onkeydown="editKeyDown(event,' + i + ')">' + escHtml(it.text) + '</textarea>';
+        html += '<textarea class="card-edit" id="edit-area" rows="2" placeholder="Enter the main point\u2026" onblur="saveEdit(' + i + ')" onkeydown="editKeyDown(event,' + i + ')">' + escHtml(it.text) + '</textarea>';
       } else {
         html += '<div class="card-text" ondblclick="startEdit(' + i + ')">';
         html += escHtml(it.text) || '<span style="color:#b4babc;font-style:italic;">Double-click to add text\u2026</span>';
@@ -450,11 +450,13 @@ function render() {
   });
 
   html += '</div>';
-  // Add input
-  html += '<div class="add-row">';
-  html += '<textarea class="add-input" id="add-input" rows="2" aria-label="New statement" placeholder="Type a statement and press Enter or click Add\u2026" onkeydown="addKeyDown(event)"></textarea>';
-  html += '<button class="add-btn" onclick="addStatement()">Add</button>';
-  html += '</div>';
+  // Add input — only show after main point has been set
+  if (state.items[0] && state.items[0].text.trim()) {
+    html += '<div class="add-row">';
+    html += '<textarea class="add-input" id="add-input" rows="2" aria-label="New statement" placeholder="Type a statement and press Enter or click Add\u2026" onkeydown="addKeyDown(event)"></textarea>';
+    html += '<button class="add-btn" onclick="addStatement()">Add</button>';
+    html += '</div>';
+  }
 
   // Preview
   if (previewText) {
@@ -665,6 +667,7 @@ function downloadTxt() {
 }
 
 // Init
+state.editingIndex = 0;
 render();
 </script>
 </body>

@@ -261,6 +261,79 @@
     position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px;
     overflow: hidden; clip: rect(0,0,0,0); white-space: nowrap; border: 0;
   }
+
+  /* Side-by-side schema layout */
+  .workspace-split {
+    display: flex; gap: 32px; align-items: flex-start;
+  }
+  .sp-panel {
+    flex: 0 0 440px; min-width: 300px;
+  }
+  .schema-panel {
+    flex: 1; min-width: 0; position: sticky; top: 20px;
+  }
+  .schema-panel-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 16px;
+  }
+  .schema-panel-title {
+    font-family: 'DM Mono', monospace; font-size: 11px; color: #b4babc;
+    text-transform: uppercase; letter-spacing: 0.1em; font-weight: 500;
+  }
+  .schema-close-btn {
+    background: none; border: none; cursor: pointer; font-size: 13px;
+    color: #b4babc; font-family: 'DM Sans', sans-serif; font-weight: 600;
+    padding: 2px 6px; border-radius: 4px; transition: color 0.15s;
+  }
+  .schema-close-btn:hover { color: #e9171f; }
+
+  /* Schema diagram */
+  .schema-view {
+    padding: 24px 28px; background: #f8f7f4; border: 1.5px solid #d8dbdc;
+    border-radius: 10px; min-height: 200px;
+  }
+  .sa-block {
+    margin-bottom: 28px;
+  }
+  .sa-block:last-child { margin-bottom: 0; }
+  .sa-row {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: 2px 0;
+    font-family: 'Source Serif 4', Georgia, serif; font-size: 14px;
+    line-height: 1.6; color: #000000;
+  }
+  .sa-lbl {
+    font-family: 'DM Mono', monospace; font-weight: 600; font-size: 13px;
+    color: #e9171f; flex-shrink: 0; min-width: 30px; padding-top: 1px;
+  }
+  .sa-lbl-c { color: #000000; }
+  .sa-divider {
+    font-family: 'DM Mono', monospace; font-size: 13px;
+    color: #000000; letter-spacing: 0.15em;
+    padding: 5px 0 3px; user-select: none;
+  }
+  .sa-mp-tag {
+    font-family: 'DM Mono', monospace; font-size: 10px; font-weight: 700;
+    color: #ffffff; background: #e9171f; text-transform: uppercase;
+    letter-spacing: 0.08em; padding: 2px 6px; border-radius: 3px;
+    margin-left: 6px; vertical-align: middle; position: relative; top: -1px;
+  }
+  .schema-empty {
+    color: #b4babc; font-style: italic; font-size: 14px;
+    font-family: 'Source Serif 4', Georgia, serif; text-align: center;
+    padding: 20px 0;
+  }
+
+  /* Schema toggle button */
+  .btn-schema {
+    padding: 12px 24px; border-radius: 8px;
+    border: 1.5px solid #000000; background: #ffffff; color: #000000;
+    font-family: 'DM Sans', sans-serif; font-size: 15px; font-weight: 600; cursor: pointer;
+    transition: background 0.15s, color 0.15s;
+  }
+  .btn-schema:hover { background: #000000; color: #ffffff; }
+  .btn-schema:disabled { border-color: #d8dbdc; color: #b4babc; cursor: not-allowed; background: #ffffff; }
+  .btn-schema.active { background: #000000; color: #ffffff; }
 </style>
 </head>
 <body>
@@ -296,9 +369,10 @@ let state = {
   items: [{ id: makeId(), text: "", code1: "", code2: "", level: 1 }],
   showHelp: false,
   showLegend: false,
-    dragIndex: null,
+  dragIndex: null,
   overIndex: null,
   editingIndex: null,
+  showSchema: false,
 };
 
 function formatCodeLabel(c1, c2) {
@@ -341,6 +415,130 @@ function codeOptionsShort(exclude) {
     .map(c => '<option value="' + c.value + '">' + (c.value ? c.label : '\u2014') + '</option>')
     .join('');
 }
+
+// ── Schema conversion ──────────────────────────────────────────────────
+
+function hasArgCodes() {
+  return state.items.slice(1).some(it =>
+    it.code1 === 's' || it.code1 === 'ri' || it.code2 === 's' || it.code2 === 'ri'
+  );
+}
+
+function buildSchemaNodes() {
+  const items = state.items.filter(it => it.text.trim());
+  if (items.length === 0) return [];
+
+  const nodes = items.map((it, i) => ({
+    id: it.id, text: it.text, level: it.level,
+    code1: it.code1, code2: it.code2, index: i,
+    parent: null, supports: [], consequences: []
+  }));
+
+  // Assign parents by level nesting
+  for (let i = 1; i < nodes.length; i++) {
+    if (nodes[i].level === 1) {
+      nodes[i].parent = nodes[0];
+    } else {
+      for (let j = i - 1; j >= 0; j--) {
+        if (nodes[j].level === nodes[i].level - 1) {
+          nodes[i].parent = nodes[j]; break;
+        }
+      }
+    }
+  }
+
+  // Wire relationships from argument codes
+  for (let i = 1; i < nodes.length; i++) {
+    const node = nodes[i];
+    const parent = node.parent;
+    if (!parent) continue;
+    [node.code1, node.code2].forEach(code => {
+      if (code === 's' && !parent.supports.includes(node)) parent.supports.push(node);
+      if (code === 'ri' && !parent.consequences.includes(node)) parent.consequences.push(node);
+    });
+  }
+
+  return nodes;
+}
+
+function buildInferenceBlocks(nodes) {
+  // For each node, its premises come from TWO sources:
+  // 1. Its [s] children (nodes that support it from below)
+  // 2. Any [ri] parent (the parent node that it was inferred FROM — that parent is a co-premise)
+  // Both types belong in the SAME block for that conclusion.
+
+  // Build riParents map: node id → list of nodes that have it as an [ri] consequence
+  const riParents = {};
+  nodes.forEach(n => {
+    n.consequences.forEach(cons => {
+      if (!riParents[cons.id]) riParents[cons.id] = [];
+      riParents[cons.id].push(n);
+    });
+  });
+
+  const blocks = [];
+  const visited = new Set();
+
+  function visit(node) {
+    if (visited.has(node.id)) return;
+    visited.add(node.id);
+
+    const allPremises = [...node.supports, ...(riParents[node.id] || [])];
+
+    // Visit all premises first (depth-first so deepest inferences render first)
+    allPremises.forEach(p => visit(p));
+
+    // If this node has any premises, it is a conclusion — emit one combined block
+    if (allPremises.length > 0) {
+      blocks.push({ premises: allPremises, conclusion: node });
+    }
+
+    // Visit [ri] consequences (nodes concluded FROM this node)
+    node.consequences.forEach(cons => visit(cons));
+  }
+
+  visit(nodes[0]);
+  return blocks;
+}
+
+function renderSchemaView() {
+  const nodes = buildSchemaNodes();
+  if (!nodes.length) return '<div class="schema-empty">Add statements to see the argument structure.</div>';
+  if (!hasArgCodes()) return '<div class="schema-empty">Add [s] or [ri] codes to see the argument structure.</div>';
+
+  const blocks = buildInferenceBlocks(nodes);
+  if (!blocks.length) return '<div class="schema-empty">Add [s] or [ri] codes to see the argument structure.</div>';
+
+  // Assign labels: S1, S2... for premises; C1, C2... for conclusions (or C if single block)
+  const labels = {};
+  let sCount = 1, cCount = 1;
+  const multi = blocks.length > 1;
+
+  blocks.forEach(block => {
+    block.premises.forEach(p => {
+      if (!labels[p.id]) labels[p.id] = 'S' + sCount++;
+    });
+    if (!labels[block.conclusion.id]) {
+      labels[block.conclusion.id] = multi ? 'C' + cCount++ : 'C';
+    }
+  });
+
+  let html = '<div class="schema-view">';
+  blocks.forEach(block => {
+    const isMP = block.conclusion === nodes[0];
+    html += '<div class="sa-block">';
+    block.premises.forEach(p => {
+      html += '<div class="sa-row"><span class="sa-lbl">' + labels[p.id] + '.</span><span>' + escHtml(p.text) + '</span></div>';
+    });
+    html += '<div class="sa-divider">— — — — — — — — — — —</div>';
+    html += '<div class="sa-row"><span class="sa-lbl sa-lbl-c">' + labels[block.conclusion.id] + '.</span><span>' + escHtml(block.conclusion.text) + (isMP ? '<span class="sa-mp-tag">MP</span>' : '') + '</span></div>';
+    html += '</div>';
+  });
+  html += '</div>';
+  return html;
+}
+
+// ── End schema conversion ──────────────────────────────────────────────
 
 function render() {
   const app = document.getElementById('app');
@@ -466,13 +664,31 @@ function render() {
 
   // Actions
   const dis = validItems.length === 0;
+  const schemaEnabled = hasArgCodes();
   html += '<div class="actions">';
   html += '<button class="btn-primary" onclick="copyToClipboard()"' + (dis ? ' disabled' : '') + '>Copy to Clipboard</button>';
   html += '<button class="btn-secondary" onclick="downloadTxt()"' + (dis ? ' disabled' : '') + '>Download .txt</button>';
+  html += '<button class="btn-schema' + (state.showSchema ? ' active' : '') + '" onclick="state.showSchema=!state.showSchema;render();"' + (!schemaEnabled ? ' disabled' : '') + ' title="' + (!schemaEnabled ? 'Add [s] or [ri] codes to enable' : (state.showSchema ? 'Hide Schematized Argument' : 'View as Schematized Argument')) + '">⬡ View as Schematized Argument</button>';
   html += '<button class="btn-secondary ml-auto" onclick="clearAll()">Clear All</button>';
   html += '</div>';
 
-  app.innerHTML = html;
+  if (state.showSchema) {
+    app.innerHTML =
+      '<div class="workspace-split">' +
+        '<div class="sp-panel">' + html + '</div>' +
+        '<div class="schema-panel">' +
+          '<div class="schema-panel-header">' +
+            '<span class="schema-panel-title">Schematized Argument</span>' +
+            '<button class="schema-close-btn" onclick="state.showSchema=false;render();">✕ Close</button>' +
+          '</div>' +
+          renderSchemaView() +
+        '</div>' +
+      '</div>';
+    document.querySelector('.container').style.maxWidth = '1400px';
+  } else {
+    app.innerHTML = html;
+    document.querySelector('.container').style.maxWidth = '';
+  }
 
   // Restore select values (since innerHTML resets them)
   items.forEach((it, i) => {
